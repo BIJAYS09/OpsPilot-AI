@@ -1,0 +1,15 @@
+pandas
+numpy
+tqdm
+dotenv
+psycopg2
+qdrant_client
+sentence_transformers
+fastapi
+uvicorn
+websockets
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt==3.2.2
+httpx
+pydantic_settings
