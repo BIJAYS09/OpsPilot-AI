@@ -1,0 +1,66 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-geist-sans: 'DM Sans', sans-serif;
+  --font-geist-mono: 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  background: #080c12;
+  color: #e2eaf6;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #0d1520; }
+::-webkit-scrollbar-thumb { background: #1e2d42; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #2a3f5a; }
+
+/* Panel base */
+.panel {
+  @apply bg-bg-surface border border-bg-border rounded-panel;
+}
+
+/* Alert badge */
+.badge-ok      { @apply text-ok   bg-ok/10   border border-ok/20   text-xs font-mono px-2 py-0.5 rounded; }
+.badge-warn    { @apply text-warn bg-warn/10 border border-warn/20 text-xs font-mono px-2 py-0.5 rounded; }
+.badge-danger  { @apply text-danger bg-danger/10 border border-danger/20 text-xs font-mono px-2 py-0.5 rounded; }
+.badge-maint   { @apply text-ink-muted bg-bg-muted border border-bg-border text-xs font-mono px-2 py-0.5 rounded; }
+
+/* Mono value display */
+.data-val { @apply font-mono text-ink text-sm tabular-nums; }
+
+/* Sensor grid item */
+.sensor-row {
+  @apply flex items-center justify-between py-2 border-b border-bg-border/60 last:border-0;
+}
+
+/* Recharts overrides */
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical   line {
+  stroke: #1e2d42 !important;
+}
+.recharts-text { fill: #7a96b8 !important; font-size: 11px !important; font-family: 'JetBrains Mono', monospace !important; }
+.recharts-tooltip-wrapper { outline: none; }
+
+/* Chat bubble */
+.bubble-user { @apply bg-brand/10 border border-brand/20 rounded-xl rounded-br-sm px-4 py-3 text-sm text-ink max-w-[80%] ml-auto; }
+.bubble-ai   { @apply bg-bg-raised border border-bg-border rounded-xl rounded-bl-sm px-4 py-3 text-sm text-ink max-w-[85%]; }
+
+/* Scrollable container */
+.scroll-area { overflow-y: auto; overflow-x: hidden; }
+
+/* Blinking cursor for streaming */
+.cursor-blink::after {
+  content: '▋';
+  @apply text-brand animate-blink;
+}

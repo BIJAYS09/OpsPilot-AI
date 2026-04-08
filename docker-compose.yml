@@ -1,37 +1,238 @@
-version: "3.9"
+name: energy-copilot
+
+# ─────────────────────────────────────────────────────────────────
+#  Energy Co-pilot — Full Stack
+#
+#  Services
+#  ┌─────────────┐   ┌──────────────┐   ┌────────────────┐
+#  │  frontend   │──▶│   backend    │──▶│  timescaledb   │
+#  │  Next.js    │   │  FastAPI     │──▶│  qdrant        │
+#  │  :3000      │   │  :8000       │   │  redis         │
+#  └─────────────┘   └──────────────┘   └────────────────┘
+#
+#  Quick start:
+#    cp .env.example .env          # fill in API keys
+#    docker compose up --build -d  # start everything
+#    docker compose logs -f        # tail logs
+#
+#  First-run data loading (after containers are healthy):
+#    docker compose exec backend python /app/data/sensor_generator.py
+#    docker compose exec backend python /app/data/rag_generator.py
+#    docker compose exec backend python /app/data/timescale_ingest.py
+#    docker compose exec backend python /app/data/qdrant_ingest.py
+# ─────────────────────────────────────────────────────────────────
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-restart: &restart
+  restart: unless-stopped
 
 services:
 
+  # ── TimescaleDB ───────────────────────────────────────────────────────────
   timescaledb:
     image: timescale/timescaledb:latest-pg16
-    container_name: energy_timescaledb
-    restart: unless-stopped
+    container_name: copilot_timescaledb
+    <<: *restart
+    logging: *default-logging
     environment:
-      POSTGRES_DB: energy_copilot
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: yourpassword
-    ports:
-      - "5432:5432"
+      POSTGRES_DB:       ${TIMESCALE_DB:-energy_copilot}
+      POSTGRES_USER:     ${TIMESCALE_USER:-postgres}
+      POSTGRES_PASSWORD: ${TIMESCALE_PASSWORD:?Set TIMESCALE_PASSWORD in .env}
+      PGDATA:            /var/lib/postgresql/data/pgdata
     volumes:
       - timescale_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+    ports:
+      - "${TIMESCALE_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d energy_copilot"]
+      test: ["CMD-SHELL", "pg_isready -U ${TIMESCALE_USER:-postgres} -d ${TIMESCALE_DB:-energy_copilot}"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 30s
+    networks:
+      - copilot_net
 
+  # ── Qdrant ────────────────────────────────────────────────────────────────
   qdrant:
-    image: qdrant/qdrant:latest
-    container_name: energy_qdrant
-    restart: unless-stopped
-    ports:
-      - "6333:6333"   # HTTP / REST
-      - "6334:6334"   # gRPC
-    volumes:
-      - qdrant_data:/qdrant/storage
+    image: qdrant/qdrant:v1.10.1
+    container_name: copilot_qdrant
+    <<: *restart
+    logging: *default-logging
     environment:
       QDRANT__SERVICE__HTTP_PORT: 6333
+      QDRANT__SERVICE__GRPC_PORT: 6334
+      QDRANT__LOG_LEVEL: WARN
+    volumes:
+      - qdrant_data:/qdrant/storage
+    ports:
+      - "${QDRANT_PORT:-6333}:6333"
+      - "6334:6334"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:6333/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - copilot_net
 
+  # ── Redis (agent state cache + pub/sub) ───────────────────────────────────
+  redis:
+    image: redis:7.4-alpine
+    container_name: copilot_redis
+    <<: *restart
+    logging: *default-logging
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redispass} --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "--pass", "${REDIS_PASSWORD:-redispass}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - copilot_net
+
+  # ── Backend (FastAPI) ─────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: copilot_backend:latest
+    container_name: copilot_backend
+    <<: *restart
+    logging: *default-logging
+    environment:
+      # App
+      APP_NAME:    "Energy Co-pilot API"
+      DEBUG:       "${DEBUG:-false}"
+      ALLOWED_ORIGINS: '["http://localhost:3000","http://frontend:3000","${FRONTEND_URL:-http://localhost:3000}"]'
+
+      # Auth
+      SECRET_KEY:  ${SECRET_KEY:?Set SECRET_KEY in .env (openssl rand -hex 32)}
+      ACCESS_TOKEN_EXPIRE_MINUTES:  ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+
+      # Databases
+      TIMESCALE_HOST:     timescaledb
+      TIMESCALE_PORT:     5432
+      TIMESCALE_DB:       ${TIMESCALE_DB:-energy_copilot}
+      TIMESCALE_USER:     ${TIMESCALE_USER:-postgres}
+      TIMESCALE_PASSWORD: ${TIMESCALE_PASSWORD}
+      TIMESCALE_POOL_MIN: 2
+      TIMESCALE_POOL_MAX: 15
+
+      QDRANT_HOST:    qdrant
+      QDRANT_PORT:    6333
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-}
+
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redispass}@redis:6379/0
+
+      # AI
+      ANTHROPIC_API_KEY:  ${ANTHROPIC_API_KEY:?Set ANTHROPIC_API_KEY in .env}
+      CLAUDE_MODEL:       ${CLAUDE_MODEL:-claude-sonnet-4-20250514}
+      EMBEDDING_BACKEND:  ${EMBEDDING_BACKEND:-sentence-transformers}
+      EMBEDDING_MODEL:    ${EMBEDDING_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+      OPENAI_API_KEY:     ${OPENAI_API_KEY:-}
+
+      # Data
+      DATA_DIR: /app/data
+
+    volumes:
+      - ./data:/app/data                        # synthetic CSVs + RAG JSON
+      - model_cache:/root/.cache/torch          # sentence-transformers model cache
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/api/v1/health/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    networks:
+      - copilot_net
+
+  # ── Frontend (Next.js) ────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+        NEXT_PUBLIC_WS_URL:  ${NEXT_PUBLIC_WS_URL:-ws://localhost:8000}
+    image: copilot_frontend:latest
+    container_name: copilot_frontend
+    <<: *restart
+    logging: *default-logging
+    environment:
+      NODE_ENV: production
+      PORT:     3000
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000 || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - copilot_net
+
+  # ── Grafana (ops monitoring) ──────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: copilot_grafana
+    <<: *restart
+    logging: *default-logging
+    environment:
+      GF_SECURITY_ADMIN_USER:     ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-grafana123}
+      GF_USERS_ALLOW_SIGN_UP:     "false"
+      GF_SERVER_ROOT_URL:         "%(protocol)s://%(domain)s/grafana"
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_INSTALL_PLUGINS:         grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    depends_on:
+      - timescaledb
+    networks:
+      - copilot_net
+
+# ─── Volumes ──────────────────────────────────────────────────────────────────
 volumes:
   timescale_data:
+    name: copilot_timescale_data
   qdrant_data:
+    name: copilot_qdrant_data
+  redis_data:
+    name: copilot_redis_data
+  grafana_data:
+    name: copilot_grafana_data
+  model_cache:
+    name: copilot_model_cache
+
+# ─── Networks ─────────────────────────────────────────────────────────────────
+networks:
+  copilot_net:
+    name: copilot_net
+    driver: bridge
