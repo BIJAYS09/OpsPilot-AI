@@ -1,0 +1,342 @@
+{
+  "__inputs": [],
+  "__requires": [],
+  "annotations": { "list": [] },
+  "description": "Energy production, availability, grid frequency, and cost analytics across all plant sites.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "title": "Live Output",
+      "type": "row"
+    },
+
+    {
+      "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null },
+            { "color": "yellow", "value": 50 },
+            { "color": "green", "value": 150 }
+          ]},
+          "unit": "megwatt",
+          "decimals": 1
+        }
+      },
+      "gridPos": { "h": 5, "w": 5, "x": 0, "y": 1 },
+      "id": 1,
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Total Live Output",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+          "format": "table",
+          "rawSql": "SELECT ROUND(SUM(power_mw)::numeric,1) AS value FROM (SELECT DISTINCT ON (asset_id) power_mw FROM energy_readings ORDER BY asset_id, time DESC) sub",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null },
+            { "color": "yellow", "value": 80 },
+            { "color": "green", "value": 95 }
+          ]},
+          "unit": "percent",
+          "decimals": 1
+        }
+      },
+      "gridPos": { "h": 5, "w": 5, "x": 5, "y": 1 },
+      "id": 2,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Fleet Availability",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+          "format": "table",
+          "rawSql": "SELECT ROUND(AVG(availability) * 100, 1) AS value FROM (SELECT DISTINCT ON (asset_id) availability FROM energy_readings ORDER BY asset_id, time DESC) sub",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null },
+            { "color": "yellow", "value": 49.85 },
+            { "color": "green", "value": 49.95 }
+          ]},
+          "unit": "hertz",
+          "decimals": 3,
+          "min": 49.8,
+          "max": 50.2
+        }
+      },
+      "gridPos": { "h": 5, "w": 5, "x": 10, "y": 1 },
+      "id": 3,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["mean"] } },
+      "title": "Avg Grid Frequency",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+          "format": "table",
+          "rawSql": "SELECT ROUND(AVG(frequency_hz)::numeric,3) AS value FROM (SELECT DISTINCT ON (asset_id) frequency_hz FROM energy_readings ORDER BY asset_id, time DESC) sub",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] },
+          "unit": "mwh",
+          "decimals": 0
+        }
+      },
+      "gridPos": { "h": 5, "w": 5, "x": 15, "y": 1 },
+      "id": 4,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["sum"] } },
+      "title": "Production (selected window)",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+          "format": "table",
+          "rawSql": "SELECT ROUND(SUM(energy_mwh)::numeric,0) AS value FROM energy_readings WHERE $__timeFilter(time)",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 },
+      "id": 101,
+      "title": "Production Trends",
+      "type": "row"
+    },
+
+    {
+      "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 10, "spanNulls": true, "gradientMode": "opacity" },
+          "unit": "megwatt",
+          "min": 0,
+          "decimals": 1
+        }
+      },
+      "gridPos": { "h": 9, "w": 16, "x": 0, "y": 7 },
+      "id": 10,
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max", "sum"] }, "tooltip": { "mode": "multi" } },
+      "title": "Power Output by Asset (MW)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+          "format": "time_series",
+          "rawSql": "SELECT time_bucket('15 minutes', time) AS time, asset_id AS metric, AVG(power_mw) AS value FROM energy_readings WHERE $__timeFilter(time) GROUP BY 1,2 ORDER BY 1",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 1.5, "fillOpacity": 5, "spanNulls": true },
+          "unit": "hertz",
+          "min": 49.8,
+          "max": 50.2,
+          "decimals": 3
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "50.0 Hz" },
+            "properties": [{ "id": "custom.lineStyle", "value": { "dash": [6, 4], "fill": "dash" } },
+              { "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } }] }
+        ]
+      },
+      "gridPos": { "h": 9, "w": 8, "x": 16, "y": 7 },
+      "id": 11,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "title": "Grid Frequency (Hz)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+          "format": "time_series",
+          "rawSql": "SELECT time_bucket('15 minutes', time) AS time, asset_id AS metric, AVG(frequency_hz) AS value FROM energy_readings WHERE $__timeFilter(time) GROUP BY 1,2 ORDER BY 1",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+          "format": "time_series",
+          "rawSql": "SELECT time_bucket('15 minutes', time) AS time, '50.0 Hz' AS metric, 50.0 AS value FROM energy_readings WHERE $__timeFilter(time) GROUP BY 1 ORDER BY 1",
+          "refId": "B",
+          "hide": false
+        }
+      ]
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 16 },
+      "id": 102,
+      "title": "Daily Aggregates",
+      "type": "row"
+    },
+
+    {
+      "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 0, "fillOpacity": 80, "gradientMode": "none" },
+          "unit": "mwh",
+          "decimals": 0,
+          "min": 0
+        }
+      },
+      "gridPos": { "h": 9, "w": 16, "x": 0, "y": 17 },
+      "id": 20,
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["sum", "mean"] },
+        "tooltip": { "mode": "multi" },
+        "barWidth": 0.6,
+        "groupWidth": 0.7
+      },
+      "title": "Daily Energy Production by Site (MWh)",
+      "type": "barchart",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+          "format": "table",
+          "rawSql": "SELECT time_bucket('1 day', time) AS time, site AS metric, ROUND(SUM(energy_mwh)::numeric,1) AS value FROM energy_readings WHERE $__timeFilter(time) GROUP BY 1,2 ORDER BY 1",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 15, "spanNulls": true },
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 1
+        }
+      },
+      "gridPos": { "h": 9, "w": 8, "x": 16, "y": 17 },
+      "id": 21,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "title": "Daily Availability % by Site",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+          "format": "time_series",
+          "rawSql": "SELECT time_bucket('1 day', time) AS time, site AS metric, ROUND(AVG(availability) * 100, 1) AS value FROM energy_readings WHERE $__timeFilter(time) GROUP BY 1,2 ORDER BY 1",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 26 },
+      "id": 103,
+      "title": "Asset Performance Table",
+      "type": "row"
+    },
+
+    {
+      "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "auto" } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "total_mwh" },
+            "properties": [
+              { "id": "unit", "value": "mwh" },
+              { "id": "decimals", "value": 1 },
+              { "id": "custom.displayMode", "value": "gradient-gauge" },
+              { "id": "color", "value": { "mode": "continuous-BlPu" } }
+            ]
+          },
+          { "matcher": { "id": "byName", "options": "avg_power_mw" },
+            "properties": [{ "id": "unit", "value": "megwatt" }, { "id": "decimals", "value": 1 }]
+          },
+          { "matcher": { "id": "byName", "options": "peak_power_mw" },
+            "properties": [{ "id": "unit", "value": "megwatt" }, { "id": "decimals", "value": 1 }]
+          },
+          { "matcher": { "id": "byName", "options": "availability_pct" },
+            "properties": [
+              { "id": "unit", "value": "percent" },
+              { "id": "decimals", "value": 1 },
+              { "id": "custom.displayMode", "value": "color-background" },
+              { "id": "thresholds", "value": { "mode": "absolute", "steps": [
+                { "color": "red", "value": null },
+                { "color": "yellow", "value": 80 },
+                { "color": "green", "value": 95 }
+              ]}}
+            ]
+          }
+        ]
+      },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 27 },
+      "id": 30,
+      "options": { "footer": { "show": true, "reducer": ["sum"], "fields": ["total_mwh"] }, "showHeader": true, "sortBy": [{ "displayName": "total_mwh", "desc": true }] },
+      "title": "Asset Performance Summary (selected window)",
+      "type": "table",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+          "format": "table",
+          "rawSql": "SELECT asset_id, site, ROUND(SUM(energy_mwh)::numeric,1) AS total_mwh, ROUND(AVG(power_mw)::numeric,1) AS avg_power_mw, ROUND(MAX(power_mw)::numeric,1) AS peak_power_mw, ROUND(AVG(availability)*100,1) AS availability_pct FROM energy_readings WHERE $__timeFilter(time) GROUP BY asset_id, site ORDER BY total_mwh DESC",
+          "refId": "A"
+        }
+      ]
+    }
+
+  ],
+
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["energy", "production", "operations"],
+  "templating": { "list": [] },
+  "time": { "from": "now-7d", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Energy Analytics",
+  "uid": "energy-analytics",
+  "version": 1
+}

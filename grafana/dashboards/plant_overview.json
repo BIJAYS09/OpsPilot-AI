@@ -1,0 +1,219 @@
+{
+  "__inputs": [],
+  "__requires": [],
+  "annotations": { "list": [] },
+  "description": "Plant-wide overview — the first screen operators see on login.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    { "icon": "dashboard", "title": "Sensor Monitoring",  "type": "link", "url": "/d/sensor-monitoring",  "targetBlank": false },
+    { "icon": "dashboard", "title": "Energy Analytics",   "type": "link", "url": "/d/energy-analytics",   "targetBlank": false },
+    { "icon": "dashboard", "title": "Maintenance & Costs","type": "link", "url": "/d/maintenance-costs",   "targetBlank": false }
+  ],
+  "panels": [
+
+    {
+      "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 1 },
+            { "color": "red", "value": 2 }
+          ]},
+          "unit": "short",
+          "mappings": [
+            { "options": { "0": { "text": "ALL CLEAR" } }, "type": "value" }
+          ]
+        }
+      },
+      "gridPos": { "h": 6, "w": 4, "x": 0, "y": 0 },
+      "id": 1,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] }, "text": { "titleSize": 14, "valueSize": 40 } },
+      "title": "Critical Assets",
+      "type": "stat",
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+        "format": "table",
+        "rawSql": "SELECT COUNT(DISTINCT asset_id) AS value FROM sensor_readings WHERE time > NOW() - INTERVAL '10 minutes' AND alert_level = 'CRITICAL'",
+        "refId": "A"
+      }]
+    },
+
+    {
+      "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 1 }
+          ]},
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 6, "w": 4, "x": 4, "y": 0 },
+      "id": 2,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] }, "text": { "titleSize": 14, "valueSize": 40 } },
+      "title": "Warning Assets",
+      "type": "stat",
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+        "format": "table",
+        "rawSql": "SELECT COUNT(DISTINCT asset_id) AS value FROM sensor_readings WHERE time > NOW() - INTERVAL '10 minutes' AND alert_level = 'WARNING'",
+        "refId": "A"
+      }]
+    },
+
+    {
+      "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }, "unit": "megwatt", "decimals": 1 }
+      },
+      "gridPos": { "h": 6, "w": 4, "x": 8, "y": 0 },
+      "id": 3,
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] }, "text": { "titleSize": 14, "valueSize": 40 } },
+      "title": "Total Output",
+      "type": "stat",
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+        "format": "table",
+        "rawSql": "SELECT ROUND(SUM(power_mw)::numeric,1) AS value FROM (SELECT DISTINCT ON (asset_id) power_mw FROM energy_readings ORDER BY asset_id, time DESC) sub",
+        "refId": "A"
+      }]
+    },
+
+    {
+      "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [
+          { "color": "red", "value": null }, { "color": "yellow", "value": 80 }, { "color": "green", "value": 95 }
+        ]}, "unit": "percent", "decimals": 1 }
+      },
+      "gridPos": { "h": 6, "w": 4, "x": 12, "y": 0 },
+      "id": 4,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] }, "text": { "titleSize": 14, "valueSize": 40 } },
+      "title": "Fleet Availability",
+      "type": "stat",
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+        "format": "table",
+        "rawSql": "SELECT ROUND(AVG(availability)*100,1) AS value FROM (SELECT DISTINCT ON (asset_id) availability FROM energy_readings ORDER BY asset_id, time DESC) sub",
+        "refId": "A"
+      }]
+    },
+
+    {
+      "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [
+          { "color": "green", "value": null }, { "color": "yellow", "value": 3 }, { "color": "red", "value": 8 }
+        ]}, "unit": "short" }
+      },
+      "gridPos": { "h": 6, "w": 4, "x": 16, "y": 0 },
+      "id": 5,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] }, "text": { "titleSize": 14, "valueSize": 40 } },
+      "title": "Open Work Orders",
+      "type": "stat",
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+        "format": "table",
+        "rawSql": "SELECT COUNT(*) AS value FROM maintenance_logs WHERE status IN ('PENDING','IN_PROGRESS')",
+        "refId": "A"
+      }]
+    },
+
+    {
+      "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 1.5, "fillOpacity": 10, "spanNulls": true },
+          "unit": "megwatt",
+          "min": 0
+        }
+      },
+      "gridPos": { "h": 9, "w": 16, "x": 0, "y": 6 },
+      "id": 10,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "title": "Plant Output — Last 24h",
+      "type": "timeseries",
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+        "format": "time_series",
+        "rawSql": "SELECT time_bucket('30 minutes', time) AS time, asset_id AS metric, AVG(power_mw) AS value FROM energy_readings WHERE time > NOW() - INTERVAL '24 hours' GROUP BY 1,2 ORDER BY 1",
+        "refId": "A"
+      }]
+    },
+
+    {
+      "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 1.5, "fillOpacity": 8, "spanNulls": true },
+          "unit": "velocityms",
+          "min": 0
+        }
+      },
+      "gridPos": { "h": 9, "w": 8, "x": 16, "y": 6 },
+      "id": 11,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "title": "Vibration Heatmap — Last 24h",
+      "type": "timeseries",
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+        "format": "time_series",
+        "rawSql": "SELECT time_bucket('30 minutes', time) AS time, asset_id AS metric, MAX(value) AS value FROM sensor_readings WHERE time > NOW() - INTERVAL '24 hours' AND sensor LIKE 'vibration%' AND value IS NOT NULL GROUP BY 1,2 ORDER BY 1",
+        "refId": "A"
+      }]
+    },
+
+    {
+      "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "auto" } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "alert_level" },
+            "properties": [
+              { "id": "custom.width", "value": 100 },
+              { "id": "custom.displayMode", "value": "color-background" },
+              { "id": "mappings", "value": [
+                { "options": {
+                  "CRITICAL": { "color": "red", "index": 0 },
+                  "WARNING":  { "color": "yellow", "index": 1 }
+                }, "type": "value" }
+              ]}
+            ]
+          }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 15 },
+      "id": 20,
+      "options": { "footer": { "show": false }, "showHeader": true, "sortBy": [{ "displayName": "time", "desc": true }] },
+      "title": "Active Alerts — Last Hour",
+      "type": "table",
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+        "format": "table",
+        "rawSql": "SELECT time, asset_id, sensor, ROUND(value::numeric,3) AS value, unit, alert_level, failure_name, ROUND(rul_hours::numeric,1) AS rul_hours FROM sensor_readings WHERE time > NOW() - INTERVAL '1 hour' AND alert_level IN ('WARNING','CRITICAL') ORDER BY time DESC LIMIT 100",
+        "refId": "A"
+      }]
+    }
+
+  ],
+
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["overview", "home", "operations"],
+  "templating": { "list": [] },
+  "time": { "from": "now-24h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Plant Overview",
+  "uid": "plant-overview",
+  "version": 1
+}

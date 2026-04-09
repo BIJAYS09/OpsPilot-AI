@@ -1,0 +1,237 @@
+{
+  "__inputs": [],
+  "__requires": [],
+  "annotations": { "list": [] },
+  "description": "Maintenance work orders, cost breakdown, and technician activity.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+
+    {
+      "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] },
+          "unit": "currencyEUR",
+          "decimals": 0
+        }
+      },
+      "gridPos": { "h": 5, "w": 5, "x": 0, "y": 0 },
+      "id": 1,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Total Maintenance Cost",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+          "format": "table",
+          "rawSql": "SELECT ROUND(SUM(cost_eur)::numeric,0) AS value FROM maintenance_logs WHERE cost_eur IS NOT NULL",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 3 },
+            { "color": "red", "value": 8 }
+          ]},
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 5, "w": 5, "x": 5, "y": 0 },
+      "id": 2,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Open Work Orders",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+          "format": "table",
+          "rawSql": "SELECT COUNT(*) AS value FROM maintenance_logs WHERE status IN ('PENDING','IN_PROGRESS')",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "red", "value": 1 }
+          ]},
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 5, "w": 5, "x": 10, "y": 0 },
+      "id": 3,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Critical Jobs Open",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+          "format": "table",
+          "rawSql": "SELECT COUNT(*) AS value FROM maintenance_logs WHERE severity = 'CRITICAL' AND status != 'COMPLETED'",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "currencyEUR",
+          "decimals": 0
+        }
+      },
+      "gridPos": { "h": 5, "w": 5, "x": 15, "y": 0 },
+      "id": 4,
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Avg Cost per Job",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+          "format": "table",
+          "rawSql": "SELECT ROUND(AVG(cost_eur)::numeric,0) AS value FROM maintenance_logs WHERE cost_eur IS NOT NULL",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "unit": "currencyEUR", "decimals": 0, "min": 0 },
+        "overrides": []
+      },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 5 },
+      "id": 10,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single" },
+        "xField": "asset_id",
+        "barWidth": 0.6
+      },
+      "title": "Total Cost by Asset (€)",
+      "type": "barchart",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+          "format": "table",
+          "rawSql": "SELECT asset_id, ROUND(SUM(cost_eur)::numeric,0) AS total_cost FROM maintenance_logs WHERE cost_eur IS NOT NULL GROUP BY asset_id ORDER BY total_cost DESC",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "unit": "short", "decimals": 0, "min": 0 }
+      },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 5 },
+      "id": 11,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "right" },
+        "tooltip": { "mode": "single" },
+        "pieType": "donut",
+        "displayLabels": ["name", "percent"]
+      },
+      "title": "Jobs by Severity",
+      "type": "piechart",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+          "format": "table",
+          "rawSql": "SELECT severity AS metric, COUNT(*) AS value FROM maintenance_logs GROUP BY severity ORDER BY value DESC",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "auto" } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "cost_eur" },
+            "properties": [
+              { "id": "unit", "value": "currencyEUR" },
+              { "id": "decimals", "value": 0 },
+              { "id": "custom.width", "value": 110 }
+            ]
+          },
+          { "matcher": { "id": "byName", "options": "severity" },
+            "properties": [
+              { "id": "custom.width", "value": 90 },
+              { "id": "custom.displayMode", "value": "color-background" },
+              { "id": "mappings", "value": [
+                { "options": {
+                    "CRITICAL": { "color": "red",    "index": 0 },
+                    "HIGH":     { "color": "orange", "index": 1 },
+                    "MEDIUM":   { "color": "blue",   "index": 2 },
+                    "LOW":      { "color": "green",  "index": 3 }
+                  }, "type": "value" }
+              ]}
+            ]
+          },
+          { "matcher": { "id": "byName", "options": "status" },
+            "properties": [
+              { "id": "custom.width", "value": 110 },
+              { "id": "custom.displayMode", "value": "color-background" },
+              { "id": "mappings", "value": [
+                { "options": {
+                    "COMPLETED":   { "color": "green",  "index": 0 },
+                    "IN_PROGRESS": { "color": "blue",   "index": 1 },
+                    "PENDING":     { "color": "yellow", "index": 2 }
+                  }, "type": "value" }
+              ]}
+            ]
+          }
+        ]
+      },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 14 },
+      "id": 20,
+      "options": { "footer": { "show": false }, "showHeader": true, "sortBy": [{ "displayName": "created_at", "desc": true }] },
+      "title": "Work Order Log",
+      "type": "table",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "timescaledb-uid" },
+          "format": "table",
+          "rawSql": "SELECT created_at, asset_id, log_type, severity, status, technician, ROUND(cost_eur::numeric,0) AS cost_eur, parts_replaced FROM maintenance_logs ORDER BY created_at DESC LIMIT 300",
+          "refId": "A"
+        }
+      ]
+    }
+
+  ],
+
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "tags": ["maintenance", "cost", "operations"],
+  "templating": { "list": [] },
+  "time": { "from": "now-30d", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Maintenance & Costs",
+  "uid": "maintenance-costs",
+  "version": 1
+}
