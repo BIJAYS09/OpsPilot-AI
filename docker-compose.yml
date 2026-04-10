@@ -202,21 +202,39 @@ services:
     <<: *restart
     logging: *default-logging
     environment:
-      GF_SECURITY_ADMIN_USER:     ${GRAFANA_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-grafana123}
-      GF_USERS_ALLOW_SIGN_UP:     "false"
-      GF_SERVER_ROOT_URL:         "%(protocol)s://%(domain)s/grafana"
-      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
-      GF_INSTALL_PLUGINS:         grafana-clock-panel,grafana-simple-json-datasource
+      GF_SECURITY_ADMIN_USER:       ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD:   ${GRAFANA_PASSWORD:-grafana123}
+      GF_USERS_ALLOW_SIGN_UP:       "false"
+      GF_USERS_DEFAULT_THEME:       dark
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/plant_overview.json
+      # Passed through so timescaledb.yml can expand them
+      TIMESCALE_USER:     ${TIMESCALE_USER:-postgres}
+      TIMESCALE_PASSWORD: ${TIMESCALE_PASSWORD:-yourpassword}
+      TIMESCALE_DB:       ${TIMESCALE_DB:-energy_copilot}
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./grafana/dashboards:/etc/grafana/dashboards:ro
-      - ./grafana/grafana.ini:/etc/grafana/grafana.ini:ro
+      # Provisioning subdirs mounted individually so missing ones don't error
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/provisioning/plugins:/etc/grafana/provisioning/plugins:ro
+      - ./grafana/provisioning/alerting:/etc/grafana/provisioning/alerting:ro
+      - ./grafana/provisioning/notifiers:/etc/grafana/provisioning/notifiers:ro
+      - ./grafana/provisioning/access-control:/etc/grafana/provisioning/access-control:ro
+      # Dashboard JSONs — must match path in dashboards.yml provider
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
       - "${GRAFANA_PORT:-3001}:3000"
     depends_on:
-      - timescaledb
+      timescaledb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     networks:
       - copilot_net
 
